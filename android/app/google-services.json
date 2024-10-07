@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "561876757928",
+    "project_id": "task-master-9fef4",
+    "storage_bucket": "task-master-9fef4.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:561876757928:android:7153760f8bbf10b997019d",
+        "android_client_info": {
+          "package_name": "com.hemant.reorderable_todo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNNcJBe2PKEz_fflrcjOCp71IEdRHmYKU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
