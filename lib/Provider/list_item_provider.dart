@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -40,6 +41,7 @@ class TodoList extends AsyncNotifier<List<TodoItem>> {
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
           .collection('todos')
+          .orderBy('position')
           .get();
 
       final todos = snapshot.docs
@@ -59,12 +61,27 @@ class TodoList extends AsyncNotifier<List<TodoItem>> {
     final id = UniqueKey().toString();
     state = AsyncValue.data([
       ...?state.value,
-      TodoItem(id: id, text: desc),
+      TodoItem(
+          id: id,
+          text: desc,
+          isChecked: false,
+          isSelected: false,
+          position: state.value?.length != null ? state.value!.length - 1 : 0),
     ]);
 
     try {
-      await _db.collection('users').doc(userId).collection('todos').doc(id).set(
-          {'text': desc, 'isChecked': false, 'id': id, 'isSelected': false});
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('todos')
+          .doc(id)
+          .set({
+        'text': desc,
+        'isChecked': false,
+        'id': id,
+        'isSelected': false,
+        'position': state.value?.length ?? 0
+      });
     } catch (e) {
       // Rollback on failure
       state =
@@ -73,7 +90,10 @@ class TodoList extends AsyncNotifier<List<TodoItem>> {
     }
   }
 
-  void reorder(int oldIndex, int newIndex) {
+  void reorder(int oldIndex, int newIndex) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
     state.whenData((todos) {
       if (oldIndex < newIndex) {
         newIndex -= 1;
@@ -82,6 +102,31 @@ class TodoList extends AsyncNotifier<List<TodoItem>> {
       todos.insert(newIndex, item);
       state = AsyncValue.data(todos);
     });
+
+    try {
+      var snapshot =
+          await _db.collection("users").doc(userId).collection('todos').get();
+      for (var doc in snapshot.docs) {
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      log("Error deleting document $e");
+    }
+
+    for (int i = 0; i < state.value!.length; i++) {
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('todos')
+          .doc(state.value![i].id)
+          .set({
+        'text': state.value![i].text,
+        'isChecked': state.value![i].isChecked,
+        'id': state.value![i].id,
+        'isSelected': state.value![i].isSelected,
+        'position': i,
+      });
+    }
   }
 
   Future<void> toggle(String id, bool isChecked) async {
@@ -96,6 +141,7 @@ class TodoList extends AsyncNotifier<List<TodoItem>> {
           id: todo.id,
           isChecked: !todo.isChecked,
           text: todo.text,
+          isSelected: todo.isSelected,
         );
       }
       return todo;
@@ -125,6 +171,7 @@ class TodoList extends AsyncNotifier<List<TodoItem>> {
           id: todo.id,
           isSelected: isSelected,
           text: todo.text,
+          isChecked: todo.isChecked,
         );
       }
       return todo;
