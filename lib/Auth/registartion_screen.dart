@@ -11,9 +11,9 @@ class RegistrationScreen extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final emailController = TextEditingController();
-    final controller1 = TextEditingController();
-    final controller2 = TextEditingController();
+    final emailController = useTextEditingController();
+    final controller1 = useTextEditingController();
+    final controller2 = useTextEditingController();
     final warningText = useState('');
 
     return Scaffold(

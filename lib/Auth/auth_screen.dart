@@ -3,15 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:reorderable_todo/Auth/registartion_screen.dart';
-import 'package:reorderable_todo/main.dart';
 
 class AuthScreen extends HookWidget {
   const AuthScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
+    final emailController = useTextEditingController();
+    final passwordController = useTextEditingController();
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     final warningText = useState('');
 
@@ -50,6 +49,7 @@ class AuthScreen extends HookWidget {
             TextButton(
                 onPressed: () async {
                   String message = '';
+                  warningText.value = '';
                   if (!emailRegex.hasMatch(emailController.text)) {
                     warningText.value = 'Invalid email';
                     return;
@@ -59,12 +59,10 @@ class AuthScreen extends HookWidget {
                       email: emailController.text.trim(),
                       password: passwordController.text.trim(),
                     );
+
                     Future.delayed(const Duration(seconds: 3), () {
-                      Navigator.of(context, rootNavigator: true).push(
-                        MaterialPageRoute(
-                          builder: (_) => const MyHomePage(),
-                        ),
-                      );
+                      Navigator.of(context, rootNavigator: true)
+                          .pushReplacementNamed("/home");
                     });
                   } on FirebaseAuthException catch (e) {
                     if (e.code == 'INVALID_LOGIN_CREDENTIALS') {

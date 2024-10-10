@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,11 +11,30 @@ import 'package:reorderable_todo/Model/list_item.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:reorderable_todo/Provider/list_item_provider.dart';
 import 'package:reorderable_todo/splash_screen.dart';
+import 'package:talker_riverpod_logger/talker_riverpod_logger_observer.dart';
+import 'package:talker_riverpod_logger/talker_riverpod_logger_settings.dart';
+import 'package:talker/talker.dart';
+
+final talker = Talker();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(ProviderScope(observers: [
+    TalkerRiverpodObserver(
+      talker: talker,
+      settings: const TalkerRiverpodLoggerSettings(
+        enabled: true,
+        printStateFullData: false,
+        printProviderAdded: true,
+        printProviderUpdated: true,
+        printProviderDisposed: true,
+        printProviderFailed: true,
+        // If you want log only AuthProvider events
+        // eventFilter: (provider) => provider.runtimeType == 'AuthProvider<User>',
+      ),
+    ),
+  ], child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -45,9 +65,8 @@ final todoListProvider =
 class MyHomePage extends HookConsumerWidget {
   const MyHomePage({super.key});
 
-  Future<void> _addButtonPressed(BuildContext context, WidgetRef ref) async {
-    TextEditingController inputController = TextEditingController();
-
+  Future<void> _addButtonPressed(BuildContext context, WidgetRef ref,
+      TextEditingController inputController) async {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -63,14 +82,15 @@ class MyHomePage extends HookConsumerWidget {
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
+                inputController.clear();
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
               child: const Text('Add'),
               onPressed: () {
-                ref.read(todoListProvider.notifier).add(inputController.text);
                 inputController.clear();
+                ref.read(todoListProvider.notifier).add(inputController.text);
                 Navigator.of(context).pop();
               },
             ),
@@ -80,11 +100,8 @@ class MyHomePage extends HookConsumerWidget {
     );
   }
 
-  Future<void> _textItemPressed(
-      BuildContext context, WidgetRef ref, TodoItem todo) async {
-    TextEditingController inputController =
-        TextEditingController(text: todo.text);
-
+  Future<void> _textItemPressed(BuildContext context, WidgetRef ref,
+      TodoItem todo, TextEditingController inputController) async {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -100,6 +117,7 @@ class MyHomePage extends HookConsumerWidget {
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
+                inputController.clear();
                 Navigator.of(context).pop();
               },
             ),
@@ -109,7 +127,7 @@ class MyHomePage extends HookConsumerWidget {
                 ref
                     .read(todoListProvider.notifier)
                     .edit(description: inputController.text, id: todo.id);
-
+                inputController.clear();
                 Navigator.of(context).pop();
               },
             ),
@@ -123,6 +141,7 @@ class MyHomePage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final todoList = ref.watch(todoListProvider);
     var showCheckbox = useState<bool>(false);
+    final inputController = useTextEditingController();
 
     Widget proxyDecorator(
         Widget child, int index, Animation<double> animation) {
@@ -141,6 +160,10 @@ class MyHomePage extends HookConsumerWidget {
         child: child,
       );
     }
+
+    final user = ref.watch(authStateChangesProvider);
+    RegExp regex = RegExp(r'^[^@]+');
+    String? userName = regex.stringMatch(user.value?.email ?? '');
 
     return Scaffold(
       appBar: AppBar(
@@ -175,6 +198,18 @@ class MyHomePage extends HookConsumerWidget {
       ),
       body: Column(children: [
         Center(
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Text(
+              userName != null ? 'Hello $userName' : '',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+        Center(
           child: showCheckbox.value
               ? ElevatedButton(
                   onPressed: () {
@@ -195,7 +230,7 @@ class MyHomePage extends HookConsumerWidget {
               : const SizedBox(height: 20),
         ),
         SizedBox(
-          height: 500,
+          height: MediaQuery.of(context).size.height * 0.7,
           child: ReorderableListView(
               proxyDecorator: proxyDecorator,
               onReorder: (int oldIndex, int newIndex) {
@@ -224,8 +259,10 @@ class MyHomePage extends HookConsumerWidget {
                                 : null,
                             title: TextButton(
                               onPressed: () {
-                                _textItemPressed(
-                                    context, ref, todoList.value![index]);
+                                inputController.text =
+                                    todoList.value![index].text;
+                                _textItemPressed(context, ref,
+                                    todoList.value![index], inputController);
                               },
                               child: Text(todoList.value![index].text,
                                   style: TextStyle(
@@ -247,7 +284,7 @@ class MyHomePage extends HookConsumerWidget {
       ]),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          _addButtonPressed(context, ref);
+          _addButtonPressed(context, ref, inputController);
         },
         child: const Icon(Icons.add),
       ),
